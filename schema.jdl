@@ -1,0 +1,124 @@
+entity User {
+    login String required minlength(1) maxlength(100),
+    password String required minlength(60) maxlength(60),
+    firstName String maxlength(50),
+    lastName String maxlength(50),
+    email String minlength(5) maxlength(100),
+    activated Boolean required,
+    langKey String minlength(2) maxlength(5),
+    imageUrl String maxlength(256),
+    activationKey String maxlength(20),
+    resetKey String maxlength(20),
+    resetDate ZonedDateTime
+}
+
+entity Hero {
+	name String required
+}
+
+entity Crisis {
+	name String required
+}
+
+entity Claim {
+    name String required,
+    sortOrder Integer,
+    imageLabel String,
+    imageLink String
+}
+
+entity Contact {
+    name String required
+}
+
+entity Note {
+    id String,
+    text String,
+    colour String,
+    left Integer,
+    top Integer
+}
+
+entity Rebuttal {
+    longName String minlength(20) maxlength(1200),
+    shortName String,
+    date ZonedDateTime,
+    expires ZonedDateTime,
+    link String
+}
+
+entity ClaimRebuttal {
+  claimId Long,
+  rebuttalId Long,
+  sortOrder Integer
+}
+
+entity Message {
+    userLogin String,
+    message String required,
+    createdAt ZonedDateTime,
+    updatedAt ZonedDateTime
+}
+
+entity Tag {
+	name String required minlength(2)
+}
+
+entity Article {
+    slug String required,
+	title String required,
+    description String required,
+	body TextBlob required,
+	createdAt ZonedDateTime required,
+	updatedAt ZonedDateTime required
+}
+
+entity Comment {
+	body TextBlob required,
+	createdAt ZonedDateTime required,
+	updatedAt ZonedDateTime required
+}
+
+entity Author {
+    bio TextBlob
+}
+
+entity Profile {
+    username String,
+    bio TextBlob,
+    image String,
+    following Boolean
+}
+
+dto Profile with mapstruct
+
+paginate Article, Tag, Message with infinite-scroll
+paginate Comment with pager
+
+relationship OneToMany {
+	Author{article} to Article{author(login)},
+    Article{comment} to Comment{article},
+    Author{comment} to Comment{author}
+}
+
+relationship ManyToMany {
+	Article{tag(name)} to Tag{article},
+    Author{follower} to Author{followee},
+    Author{favorite} to Article{favoriter}
+}
+
+relationship OneToOne {
+    Author{user(login)} to User{custom(login)}
+}
+
+paginate Message with infinite-scroll
+
+entity Talk {
+	title String required,
+    speaker String required,
+    description TextBlob required,
+    yourRating Float max(10),
+    rating Float
+}
+
+paginate Talk with pager

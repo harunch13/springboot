@@ -1,0 +1,309 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  maven-build:
+    name: Build, Test and Package
+    runs-on: self-hosted
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Java 8
+        run: |
+          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Java 8
+        run: |
+          java -version
+
+      - name: Verify Maven
+        run: |
+          ./mvnw -version
+
+      - name: Compile Application
+        run: |
+          ./mvnw -B compile
+
+      - name: Run Tests
+        run: |
+          ./mvnw -B test
+
+      - name: Prepare Legacy npm
+        run: |
+          mkdir -p .local-npm
+          npm pack npm@5.10.0
+          tar -xzf npm-5.10.0.tgz -C .local-npm --strip-components=1
+          rm -f npm-5.10.0.tgz
+
+          mkdir -p .local-npm/bin
+
+          cat > .local-npm/bin/npm-wrapper <<'EOF'
+          #!/bin/sh
+          SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+          PROJECT_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)"
+          exec "$PROJECT_ROOT/node/node" "$PROJECT_ROOT/.local-npm/bin/npm-cli.js" "$@"
+          EOF
+
+          chmod +x .local-npm/bin/npm-wrapper
+          ln -sf npm-wrapper .local-npm/bin/npm
+
+          echo "$PWD/.local-npm/bin" >> "$GITHUB_PATH"
+          echo "$PWD/node/yarn/dist/bin" >> "$GITHUB_PATH"
+          echo "$PWD/node" >> "$GITHUB_PATH"
+          echo "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt" >> "$GITHUB_ENV"
+
+      - name: Package WAR
+        run: |
+          ./mvnw -B package -Pprod -DskipTests
+
+      - name: Verify WAR
+        run: |
+          ls -lh target/*.war
+
+  sonarqube:
+    name: SonarQube Analysis
+    needs: maven-build
+    runs-on: self-hosted
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Java 8 for Application Build
+        run: |
+          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Java 8
+        run: |
+          java -version
+
+      - name: Verify Maven
+        run: |
+          ./mvnw -version
+
+      - name: Compile Application
+        run: |
+          ./mvnw -B compile
+
+      - name: Verify Compiled Classes
+        run: |
+          test -d target/classes
+          echo "Compiled classes found:"
+          find target/classes -type f | head -10
+
+      - name: Use Java 11 for SonarQube
+        run: |
+          export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Java 11
+        run: |
+          java -version
+
+      - name: Run SonarQube Analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          ./mvnw -B sonar:sonar \
+            -Dsonar.projectKey=great-big-example-application \
+            -Dsonar.host.url="$SONAR_HOST_URL" \
+            -Dsonar.login="$SONAR_TOKEN" \
+            -Dsonar.java.binaries=target/classes
+
+
+
+  nexus-deploy:
+    name: Deploy WAR to Nexus
+    needs: sonarqube
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Java 8
+        run: |
+          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Java 8
+        run: |
+          java -version
+
+      - name: Verify Maven
+        run: |
+          ./mvnw -version
+
+      - name: Create Maven Settings
+        run: |
+          mkdir -p ~/.m2
+
+          cat > ~/.m2/settings.xml <<EOF
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+            <servers>
+              <server>
+                <id>nexus-releases</id>
+                <username>${{ secrets.NEXUS_USERNAME }}</username>
+                <password>${{ secrets.NEXUS_PASSWORD }}</password>
+              </server>
+
+              <server>
+                <id>nexus-snapshots</id>
+                <username>${{ secrets.NEXUS_USERNAME }}</username>
+                <password>${{ secrets.NEXUS_PASSWORD }}</password>
+              </server>
+            </servers>
+
+          </settings>
+          EOF
+
+      - name: Deploy to Nexus
+        run: |
+          ./mvnw -B deploy -DskipTests
+
+
+
+  tomcat-uat:
+    name: Docker Tomcat UAT
+    needs: nexus-deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Release WAR from Nexus
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          curl -fL \
+            -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
+            -o /tmp/great-big-example-application-0.0.1.war \
+            http://localhost:8081/repository/maven-releases/org/exampleapps/greatbig/great-big-example-application/0.0.1/great-big-example-application-0.0.1.war
+
+      - name: Verify WAR
+        run: |
+          ls -lh /tmp/great-big-example-application-0.0.1.war
+
+      - name: Stop Docker Tomcat
+        run: |
+          docker stop tomcat9
+
+      - name: Remove Previous UAT Deployment
+        run: |
+          rm -rf /opt/tomcat9/webapps/great-big-example-application-0.0.1
+          rm -f /opt/tomcat9/webapps/great-big-example-application-0.0.1.war
+
+      - name: Deploy WAR to Docker Tomcat
+        run: |
+          cp /tmp/great-big-example-application-0.0.1.war /opt/tomcat9/webapps/great-big-example-application-0.0.1.war
+
+      - name: Start Docker Tomcat
+        run: |
+          docker start tomcat9
+
+      - name: Verify WAR Deployment
+        run: |
+          ls -lh /opt/tomcat9/webapps/great-big-example-application-0.0.1.war
+
+      - name: UAT HTTP Test
+        run: |
+          URL="http://localhost:8090/great-big-example-application-0.0.1/"
+          MAX_ATTEMPTS=24
+          ATTEMPT=1
+
+          while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
+            echo "UAT attempt $ATTEMPT/$MAX_ATTEMPTS..."
+
+            if curl -fsS "$URL" > /dev/null; then
+              echo "UAT PASSED: Application returned HTTP 200."
+              exit 0
+            fi
+
+            echo "Application not ready yet. Waiting 5 seconds..."
+            sleep 5
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          echo "UAT FAILED: Application did not return HTTP 200 within 120 seconds."
+          exit 1
+
+  dockerhub-push:
+    name: Build and Push Docker Image
+    needs: tomcat-uat
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Validated WAR from Nexus
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          mkdir -p target
+
+          curl -fL \
+            -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
+            -o target/great-big-example-application-0.0.1.war \
+            http://localhost:8081/repository/maven-releases/org/exampleapps/greatbig/great-big-example-application/0.0.1/great-big-example-application-0.0.1.war
+
+      - name: Verify WAR
+        run: |
+          ls -lh target/great-big-example-application-0.0.1.war
+
+      - name: Verify Docker
+        run: |
+          docker --version
+
+      - name: Login to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          echo "$DOCKERHUB_TOKEN" | docker login \
+            --username "$DOCKERHUB_USERNAME" \
+            --password-stdin
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t lukmanabdallah/great-big-example-application:0.0.1 \
+            .
+
+      - name: Push Docker Image
+        run: |
+          docker push \
+            lukmanabdallah/great-big-example-application:0.0.1

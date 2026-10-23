@@ -1,0 +1,53 @@
+<div *ngIf="page">
+    <md-card>
+        <md-card-title>
+            <a routerLink="/features/bernie">Bernie Rebuttals</a>
+        </md-card-title>
+        <md-card-content>
+            <div>
+                <div>
+                    <span>
+                        <label for="search-box">Search</label>
+                        <input #searchBox id="search-box" [value]="searchTerms" (keyup)="search(searchBox.value)" />
+                    </span>
+                    <span>
+                        <button *ngIf="!page.expanded" class="btn btn-default" title="Expand All" (click)="toggleExpanded()">Expand All</button>
+                        <button *ngIf="page.expanded" class="btn btn-default" title="Collapse All" (click)="toggleExpanded()">Collapse All</button>
+                        <button *ngIf="!page.editable" class="btn btn-default" title="Arrange rebuttals from strongest to weakest and click this when you are done"
+                            (click)="toggleEditable()">Edit Mode</button>
+                        <button *ngIf="page.editable && page.dirty" class="btn btn-default touched" title="Save changes" (click)="saveAll()">
+                            Save Changes</button>
+                        <button *ngIf="page.editable && !page.dirty" class="btn btn-default" title="Read only mode" (click)="toggleEditable()">
+                            Read-Only Mode</button>
+                        <button *ngIf="page.editable" class="btn btn-default" title="Add a new claim" (click)="addClaim()">
+                            Add Claim</button>
+                    </span>
+                </div>
+            </div>
+        </md-card-content>
+    </md-card>
+    <br>
+    <br>
+    <div id="claim-box" class="content-container box">
+        <ul id="claim-list" [sortablejs]="claims" [sortablejsOptions]="options" (update)="reorderClaims($event)">
+            <li *ngFor="let claim of claims">
+                <jhi-bernie-claim [page]="page" [claim]="claim" (addClaim)="addClaim()" (toggleEditable)="toggleEditable()" (addRebuttal)="addRebuttal($event)"
+                    (toggleRebuttals)="toggleRebuttals($event)" (reorderRebuttals)="reorderRebuttals(claim, $event)" (cancelRebuttal)="cancelRebuttal($event)"
+                    (saveRebuttal)="saveRebuttal($event)" (makeRebuttalEditable)="makeRebuttalEditable($event)" (navigate)="navigate(undefined, $event)"></jhi-bernie-claim>
+            </li>
+        </ul>
+    </div>
+
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
+    <p>Unaffiliated with any campaign. Made by volunteers with optimism for a better future</p>
+</div>

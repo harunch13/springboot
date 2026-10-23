@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "lib": [
+            "es2017",
+            "dom"
+        ],
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "removeComments": false,
+        "noImplicitAny": false,
+        "suppressImplicitAnyIndexErrors": true,
+        "outDir": "target/www/app",
+        "typeRoots": [
+            "node_modules/@types"
+        ]
+    },
+    "include": [
+        "src/main/webapp/app",
+        "src/test/javascript",
+        "typings.d.ts"
+    ]
+}

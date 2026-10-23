@@ -1,0 +1,66 @@
+$font-family: 'Roboto', sans-serif;
+
+$resXXL: 1280px;
+$resXL: 1170px;
+$resL: 991px;
+$resM: 768px;
+$resS: 660px;
+$resXS: 500px;
+$resXXS: 435px;
+$resMin: 320px;
+
+$top-height: 66px;
+$sidebar-width: 180px;
+
+$small-card-height: 114px;
+$xsmall-card-height: 187px;
+$medium-card-height: 400px;
+$extra-medium-card-height: 550px;
+$large-card-height: 974px;
+
+$default-animation-duration: 0.2s;
+$default-animation-style: ease-out;
+
+$content-root: '/content';
+// $images-root: '/img/';
+$images-root: '/';
+// $fonts-root: '/fonts/';
+$fonts-root: '/';
+$font-thin: 100;
+$font-light: 300;
+$font-normal: 400;
+$font-bold: 700;
+$font-bolder: 500;
+$font-ultraBold: 900;
+
+$facebook-color: #3b5998;
+$twitter-color: #55acee;
+$google-color: #dd4b39;
+$linkedin-color: #0177B5;
+$github-color: #6b6b6b;
+$stackoverflow-color: #2F96E8;
+$dribble-color: #F26798;
+$behace-color: #0093FA;
+
+// from meals demo
+$primary-color: rgba(0, 108, 175, 1);
+$dark-blue: #1a1a40;
+$accent-color: #ff5780;
+$accent-text-color: #fff;
+$link-color: $primary-color;
+$light-gray: #b9b9b9;
+$visible-gray: #737373;
+$visible-red: #e80000;
+$pure-gray: #808080;
+$black: #000;
+$white: #fff;
+$missing-image: #ffc0cb;
+// Fonts
+$title-font: GeosansLight;
+// Forms
+$form-color: $primary-color;
+$form-focus: #83bffc;
+$input-font-size: 20px;
+// Break points
+$mobile-break-point: 767px;
+$desktop-break-point: 1150px;

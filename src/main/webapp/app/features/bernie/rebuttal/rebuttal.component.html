@@ -1,0 +1,24 @@
+<span *ngIf="page.editable">
+    <span class="drag-handle">☰</span>
+    <button class="fa fa-edit" title="edit" (click)="makeEditable.emit(rebuttal)" *ngIf="!rebuttal.editing"></button>
+    <button class="fa fa-save" title="save" (click)="save.emit({id: rebuttal.id, shortName: editForm.controls.shortName.value, longName: editForm.controls.longName.value, link: editForm.controls.link.value, comments: editForm.controls.comments.value})"
+        *ngIf="rebuttal.editing"></button>
+    <button [ngClass]="{'fa-undo':!rebuttal.isNew, 'fa-trash':rebuttal.isNew}" class="fa" title="cancel" (click)="cancel.emit({claimRebuttalId: claimRebuttalId, rebuttal: rebuttal})"
+        *ngIf="rebuttal.editing"></button>
+</span>
+
+<form [formGroup]="editForm" *ngIf="rebuttal.editing">
+    <input placeholder="Short Name" formControlName="shortName" class="form-control block col-12 mb1 input">
+    <p *ngIf="editForm.controls['shortName'].errors">This field is required!</p>
+    <textarea placeholder="Long Name" formControlName="longName" class="form-control block col-12 mb1 textarea"></textarea>
+    <input placeholder="Link" formControlName="link" type="url" class="form-control block col-12 mb1 input">
+    <textarea placeholder="Comments" *ngIf="rebuttal.isNew" formControlName="comments" class="form-control block col-12 mb1 input"></textarea>
+</form>
+
+<span *ngIf="!rebuttal.editing" [class.editable]="page.editable">
+    <span class="rebuttal-title">{{rebuttal.shortName}}</span> -
+    <br>
+    <span>{{rebuttal.longName}}</span>
+    <a *ngIf="rebuttal.link" target="blank" [href]="rebuttal.link">🔗</a>
+    <div>{{rebuttal.comments}}</div>
+</span>
